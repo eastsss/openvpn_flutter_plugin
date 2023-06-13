@@ -10,7 +10,7 @@ Add this to your onActivityResult in MainActivity.java
 So it look like this
 ```java
     ...
-    import id.laskarmedia.openvpn_flutter.OpenVPNFlutterPlugin;
+    import com.polecat.openvpn_flutter.OpenVPNFlutterPlugin;
     ...
     
     @Override
@@ -68,7 +68,7 @@ Before start, you have to initialize the OpenVPN plugin.
         openvpn = OpenVPN(onVpnStatusChanged: _onVpnStatusChanged, onVpnStageChanged: _onVpnStageChanged);
         openvpn.initialize(
             groupIdentifier: "GROUP_IDENTIFIER", ///Example 'group.com.laskarmedia.vpn'
-            providerBundleIdentifier: "NETWORK_EXTENSION_IDENTIFIER", ///Example 'id.laskarmedia.openvpnFlutterExample.VPNExtension'
+            providerBundleIdentifier: "NETWORK_EXTENSION_IDENTIFIER", ///Example 'com.polecat.openvpnFlutterExample.VPNExtension'
             localizedDescription: "LOCALIZED_DESCRIPTION" ///Example 'Laskarmedia VPN'
         );
     }

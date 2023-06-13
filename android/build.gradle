@@ -1,4 +1,4 @@
-group 'id.laskarmedia.openvpn_flutter'
+group 'com.polecat.openvpn_flutter'
 version '1.0'
 
 buildscript {

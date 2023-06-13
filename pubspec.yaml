@@ -20,7 +20,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: id.laskarmedia.openvpn_flutter
+        package: com.polecat.openvpn_flutter
         pluginClass: OpenVPNFlutterPlugin
       ios:
         pluginClass: OpenVPNFlutterPlugin
