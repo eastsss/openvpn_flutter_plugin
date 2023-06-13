@@ -1,4 +1,4 @@
-name: openvpn_flutter
+name: openvpn_flutter_plugin
 description: A plugin that allow you to connect OpenVPN service with Flutter
 version: 1.2.1
 homepage: https://github.com/nizwar/openvpn_flutter
