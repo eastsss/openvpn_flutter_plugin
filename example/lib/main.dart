@@ -40,7 +40,7 @@ class _MyAppState extends State<MyApp> {
       groupIdentifier: "group.com.laskarmedia.vpn",
       providerBundleIdentifier:
           "com.polecat.openvpnFlutterExample.VPNExtension",
-      localizedDescription: "VPN by Nizwar",
+      localizedDescription: "VPN by Nizwar"/*,
       lastStage: (stage) {
         setState(() {
           this.stage = stage;
@@ -50,7 +50,7 @@ class _MyAppState extends State<MyApp> {
         setState(() {
           this.status = status;
         });
-      },
+      },*/
     );
     super.initState();
   }

@@ -25,13 +25,15 @@ import io.flutter.plugin.common.MethodChannel;
 public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
 
     private MethodChannel vpnControlMethod;
+
     private EventChannel vpnStageEvent;
-    //    private EventChannel vpnStatusEvent;
     private EventChannel.EventSink vpnStageSink;
-//    private EventChannel.EventSink vpnStatusSink;
+
+    private EventChannel vpnStatusEvent;
+    private EventChannel.EventSink vpnStatusSink;
 
     private static final String EVENT_CHANNEL_VPN_STAGE = "com.polecat.openvpn_flutter/vpnstage";
-    //    private static final String EVENT_CHANNEL_VPN_STATUS = "com.polecat.openvpn_flutter/vpnstatus";
+    private static final String EVENT_CHANNEL_VPN_STATUS = "com.polecat.openvpn_flutter/vpnstatus";
     private static final String METHOD_CHANNEL_VPN_CONTROL = "com.polecat.openvpn_flutter/vpncontrol";
 
     private static String config = "", username = "", password = "", name = "";
@@ -53,6 +55,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
         vpnStageEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STAGE);
+        vpnStatusEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STATUS);
         vpnControlMethod = new MethodChannel(binding.getBinaryMessenger(), METHOD_CHANNEL_VPN_CONTROL);
 
         vpnStageEvent.setStreamHandler(new EventChannel.StreamHandler() {
@@ -64,6 +67,18 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
             @Override
             public void onCancel(Object arguments) {
                 if (vpnStageSink != null) vpnStageSink.endOfStream();
+            }
+        });
+
+        vpnStatusEvent.setStreamHandler(new EventChannel.StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                vpnStatusSink = events;
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                if (vpnStatusSink != null) vpnStatusSink.endOfStream();
             }
         });
 
@@ -87,10 +102,10 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
 
                         @Override
                         public void onConnectionStatusChanged(String duration, String lastPacketReceive, String byteIn, String byteOut) {
-
+                            updateStatus(vpnHelper.status.toString());
                         }
                     });
-                    result.success(updateVPNStages());
+                    result.success(getVPNStage());
                     break;
                 case "disconnect":
                     if (vpnHelper == null)
@@ -128,7 +143,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
                         result.error("-1", "VPNEngine need to be initialize", "");
                         return;
                     }
-                    result.success(updateVPNStages());
+                    result.success(getVPNStage());
                     break;
                 case "request_permission":
                     final Intent request = VpnService.prepare(activity);
@@ -151,16 +166,18 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
         if (vpnStageSink != null) vpnStageSink.success(stage.toLowerCase());
     }
 
+    public void updateStatus(String status) {
+        if (vpnStatusSink != null && status != null) vpnStatusSink.success(status.toLowerCase());
+    }
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         vpnStageEvent.setStreamHandler(null);
+        vpnStatusEvent.setStreamHandler(null);
         vpnControlMethod.setMethodCallHandler(null);
-//        vpnStatusEvent.setStreamHandler(null);
     }
 
-
-    private String updateVPNStages() {
+    private String getVPNStage() {
         if (OpenVPNService.getStatus() == null) {
             OpenVPNService.setDefaultStatus();
         }
