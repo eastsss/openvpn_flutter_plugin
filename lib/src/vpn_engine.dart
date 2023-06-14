@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'model/vpn_status.dart';
 
@@ -23,18 +24,18 @@ enum VPNStage {
 }
 
 class OpenVPN {
-  static const String _eventChannelVpnStage =
-      "com.polecat.openvpn_flutter/vpnstage";
-  static const String _methodChannelVpnControl =
-      "com.polecat.openvpn_flutter/vpncontrol";
+  static const String _eventChannelVpnStage = "com.polecat.openvpn_flutter/vpnstage";
+  static const String _eventChannelVpnStatus = "com.polecat.openvpn_flutter/vpnstatus";
+  static const String _methodChannelVpnControl = "com.polecat.openvpn_flutter/vpncontrol";
 
   ///Method channel to invoke methods from native side
   static const MethodChannel _methodChannel =
       MethodChannel(_methodChannelVpnControl);
 
   ///Snapshot of stream with events produced by native side
-  static Stream<String> _stageEventChannel() =>
-      const EventChannel(_eventChannelVpnStage).receiveBroadcastStream().cast();
+  static Stream<String> _stageEventChannel() => const EventChannel(_eventChannelVpnStage).receiveBroadcastStream().cast();
+
+  static Stream<String> _statusEventChannel() => const EventChannel(_eventChannelVpnStatus).receiveBroadcastStream().cast();
 
   ///Timer to get vpnstatus as a loop
   ///
@@ -264,6 +265,9 @@ class OpenVPN {
       } else {
         _vpnStatusTimer?.cancel();
       }*/
+    });
+    _statusEventChannel().listen((event) { 
+      debugPrint("Status event received:\n $event");
     });
   }
 
