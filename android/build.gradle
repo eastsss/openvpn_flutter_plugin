@@ -46,5 +46,5 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.eastsss:openvpn_library:241ec98b8853c6783799779f3bd2df5579ca291b'
+    implementation 'com.github.eastsss:openvpn_library:master-SNAPSHOT'
 }
