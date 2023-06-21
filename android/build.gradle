@@ -3,6 +3,7 @@ version '1.0'
 
 buildscript {
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
@@ -15,6 +16,7 @@ buildscript {
 
 rootProject.allprojects {
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
@@ -46,5 +48,5 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.eastsss:openvpn_library:master-SNAPSHOT'
+    implementation 'com.github.eastsss:openvpn_library:1.0'
 }
