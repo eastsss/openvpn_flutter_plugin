@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import de.blinkt.openvpn.OnVPNStatusChangeListener;
 import de.blinkt.openvpn.VPNHelper;
 import de.blinkt.openvpn.core.OpenVPNService;
+import de.blinkt.openvpn.core.StatusListener;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
@@ -41,6 +42,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
     private static ArrayList<String> bypassPackages;
     @SuppressLint("StaticFieldLeak")
     private static VPNHelper vpnHelper;
+    private static StatusListener statusListener;
     private Activity activity;
 
     Context mContext;
@@ -94,6 +96,8 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
                     break;
                 case "initialize":
                     vpnHelper = new VPNHelper(activity);
+                    statusListener = new StatusListener();
+                    statusListener.init(binding.getApplicationContext());
                     vpnHelper.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
                         @Override
                         public void onVPNStatusChanged(String status) {
