@@ -42,7 +42,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
     private static ArrayList<String> bypassPackages;
     @SuppressLint("StaticFieldLeak")
     private static VPNHelper vpnHelper;
-    private static StatusListener statusListener;
+    //private static StatusListener statusListener;
     private Activity activity;
 
     Context mContext;
@@ -96,8 +96,8 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
                     break;
                 case "initialize":
                     vpnHelper = new VPNHelper(activity);
-                    statusListener = new StatusListener();
-                    statusListener.init(binding.getApplicationContext());
+                    /*statusListener = new StatusListener();
+                    statusListener.init(binding.getApplicationContext());*/
                     vpnHelper.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
                         @Override
                         public void onVPNStatusChanged(String status) {
