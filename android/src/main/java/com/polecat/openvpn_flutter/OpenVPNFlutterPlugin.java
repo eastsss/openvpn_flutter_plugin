@@ -141,6 +141,9 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
         vpnStateEvent.setStreamHandler(null);
         connectionInfoEvent.setStreamHandler(null);
         vpnControlMethod.setMethodCallHandler(null);
+        activityBinding = null;
+        vpnManager.unbindVpnService(binding.getApplicationContext());
+        vpnManager = null;
     }
 
     @Override
