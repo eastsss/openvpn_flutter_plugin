@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'model/vpn_status.dart';
 
 ///Stages of vpn connections
-enum VPNStage {
+enum VPNState {
   prepare,
   authenticating,
   connecting,
@@ -24,8 +24,8 @@ enum VPNStage {
 }
 
 class OpenVPN {
-  static const String _eventChannelVpnStage = "com.polecat.openvpn_flutter/vpnstage";
-  static const String _eventChannelVpnStatus = "com.polecat.openvpn_flutter/vpnstatus";
+  static const String _eventChannelVpnState = "com.polecat.openvpn_flutter/vpnstate";
+  static const String _eventChannelConnectionInfo = "com.polecat.openvpn_flutter/connectioninfo";
   static const String _methodChannelVpnControl = "com.polecat.openvpn_flutter/vpncontrol";
 
   ///Method channel to invoke methods from native side
@@ -33,14 +33,9 @@ class OpenVPN {
       MethodChannel(_methodChannelVpnControl);
 
   ///Snapshot of stream with events produced by native side
-  static Stream<String> _stageEventChannel() => const EventChannel(_eventChannelVpnStage).receiveBroadcastStream().cast();
+  static Stream<String> _stateEventChannel() => const EventChannel(_eventChannelVpnState).receiveBroadcastStream().cast();
 
-  static Stream<String> _statusEventChannel() => const EventChannel(_eventChannelVpnStatus).receiveBroadcastStream().cast();
-
-  ///Timer to get vpnstatus as a loop
-  ///
-  ///I know it was bad practice, but this is the only way to avoid android status duration having long delay
-  Timer? _vpnStatusTimer;
+  static Stream<String> _connectionInfoEventChannel() => const EventChannel(_eventChannelConnectionInfo).receiveBroadcastStream().cast();
 
   ///To indicate the engine already initialize
   bool initialized = false;
@@ -49,15 +44,15 @@ class OpenVPN {
   DateTime? _tempDateTime;
 
   /// is a listener to see vpn status detail
-  final Function(VpnStatus? data)? onVpnStatusChanged;
+  //final Function(VpnStatus? data)? onVpnStatusChanged;
 
   /// is a listener to see what stage the connection was
-  final Function(VPNStage stage, String rawStage)? onVpnStageChanged;
+  final Function(VPNState stage)? onVpnStateChanged;
 
   /// OpenVPN's Constructions, don't forget to implement the listeners
   /// onVpnStatusChanged is a listener to see vpn status detail
   /// onVpnStageChanged is a listener to see what stage the connection was
-  OpenVPN({this.onVpnStatusChanged, this.onVpnStageChanged});
+  OpenVPN({/*this.onVpnStatusChanged, */this.onVpnStateChanged});
 
   ///This function should be called before any usage of OpenVPN
   ///All params required for iOS, make sure you read the plugin's documentation
@@ -68,7 +63,6 @@ class OpenVPN {
   ///localizedDescription is for description to show in user's settings
   ///
   ///
-  ///Will return latest VPNStage
   Future<void> initialize({
     String? providerBundleIdentifier,
     String? localizedDescription,
@@ -109,10 +103,8 @@ class OpenVPN {
   void connect(String config, String name,
       {String? username,
       String? password,
-      List<String>? bypassPackages,
-      bool certIsRequired = false}) async {
+      List<String>? bypassPackages}) async {
     if (!initialized) throw ("OpenVPN need to be initialized");
-    if (!certIsRequired) config += "client-cert-not-required";
     _tempDateTime = DateTime.now();
     _methodChannel.invokeMethod("connect", {
       "config": config,
@@ -127,21 +119,13 @@ class OpenVPN {
   void disconnect() {
     _tempDateTime = null;
     _methodChannel.invokeMethod("disconnect");
-    if (_vpnStatusTimer?.isActive ?? false) {
-      _vpnStatusTimer?.cancel();
-      _vpnStatusTimer = null;
-    }
   }
-
-  ///Check if connected to vpn
-  Future<bool> isConnected() async =>
-      stage().then((value) => value == VPNStage.connected);
 
   ///Get latest connection stage
-  Future<VPNStage> stage() async {
+  /*Future<VPNState> state() async {
     String? stage = await _methodChannel.invokeMethod("stage");
     return _strToStage(stage ?? "disconnected");
-  }
+  }*/
 
   ///Get latest connection status
   /*Future<VpnStatus?> status() {
@@ -192,40 +176,6 @@ class OpenVPN {
     });
   }*/
 
-  ///Request android permission (Return true if already granted)
-  Future<bool> requestPermissionAndroid() async {
-    return _methodChannel
-        .invokeMethod("request_permission")
-        .then((value) => value ?? false);
-  }
-
-  ///Sometimes config script has too many Remotes, it cause ANR in several devices,
-  ///This happened because the plugin check every remote and somehow affected the UI to freeze
-  ///
-  ///Use this function if you wanted to force user to use 1 remote by randomize the remotes provided
-  static Future<String?> filteredConfig(String? config) async {
-    List<String> remotes = [];
-    List<String> output = [];
-    if (config == null) return null;
-    var raw = config.split("\n");
-
-    for (var item in raw) {
-      if (item.trim().toLowerCase().startsWith("remote ")) {
-        if (!output.contains("REMOTE_HERE")) {
-          output.add("REMOTE_HERE");
-        }
-        remotes.add(item);
-      } else {
-        output.add(item);
-      }
-    }
-    String fastestServer = remotes[Random().nextInt(remotes.length - 1)];
-    int indexRemote = output.indexWhere((element) => element == "REMOTE_HERE");
-    output.removeWhere((element) => element == "REMOTE_HERE");
-    output.insert(indexRemote, fastestServer);
-    return output.join("\n");
-  }
-
   ///Convert duration that produced by native side as Connection Time
   String _duration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
@@ -235,27 +185,28 @@ class OpenVPN {
   }
 
   ///Private function to convert String to VPNStage
-  static VPNStage _strToStage(String? stage) {
-    if (stage == null ||
-        stage.trim().isEmpty ||
-        stage.trim() == "idle" ||
-        stage.trim() == "invalid") {
-      return VPNStage.disconnected;
+  static VPNState _strToState(String? state) {
+    if (state == null ||
+        state.trim().isEmpty ||
+        state.trim() == "idle" ||
+        state.trim() == "invalid") {
+      return VPNState.disconnected;
     }
-    var indexStage = VPNStage.values.indexWhere((element) => element
+    var indexStage = VPNState.values.indexWhere((element) => element
         .toString()
         .trim()
         .toLowerCase()
-        .contains(stage.toString().trim().toLowerCase()));
-    if (indexStage >= 0) return VPNStage.values[indexStage];
-    return VPNStage.disconnected;
+        .contains(state.toString().trim().toLowerCase()));
+    if (indexStage >= 0) return VPNState.values[indexStage];
+    return VPNState.disconnected;
   }
 
   ///Initialize listener, called when you start connection and stoped while
   void _initializeListener() {
-    _stageEventChannel().listen((event) {
-      var vpnStage = _strToStage(event);
-      onVpnStageChanged?.call(vpnStage, event);
+    _stateEventChannel().listen((event) {
+      debugPrint("VPNState event received: $event");
+      var vpnStage = _strToState(event);
+      onVpnStateChanged?.call(vpnStage);
       /*if (vpnStage != VPNStage.disconnected) {
         if (Platform.isAndroid) {
           _createTimer();
@@ -266,8 +217,8 @@ class OpenVPN {
         _vpnStatusTimer?.cancel();
       }*/
     });
-    _statusEventChannel().listen((event) { 
-      debugPrint("Status event received:\n $event");
+    _connectionInfoEventChannel().listen((event) {
+      debugPrint("Connection info event received: $event");
     });
   }
 
