@@ -11,7 +11,7 @@ import androidx.annotation.NonNull;
 import java.util.ArrayList;
 
 import de.blinkt.openvpn.OnVPNStatusChangeListener;
-import de.blinkt.openvpn.VPNHelper;
+import de.blinkt.openvpn.VPNManager;
 import de.blinkt.openvpn.core.OpenVPNService;
 import de.blinkt.openvpn.core.StatusListener;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -19,105 +19,91 @@ import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugin.common.PluginRegistry;
 
 /**
  * OpenvpnFlutterPlugin
  */
-public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
+public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, PluginRegistry.ActivityResultListener {
 
+    private final String METHOD_CHANNEL_VPN_CONTROL = "com.polecat.openvpn_flutter/vpncontrol";
     private MethodChannel vpnControlMethod;
 
-    private EventChannel vpnStageEvent;
-    private EventChannel.EventSink vpnStageSink;
+    private final String EVENT_CHANNEL_VPN_STATE = "com.polecat.openvpn_flutter/vpnstate";
+    private EventChannel vpnStateEvent;
+    private EventChannel.EventSink vpnStateSink;
 
-    private EventChannel vpnStatusEvent;
-    private EventChannel.EventSink vpnStatusSink;
+    private final String EVENT_CHANNEL_CONNECTION_INFO = "com.polecat.openvpn_flutter/connectioninfo";
+    private EventChannel connectionInfoEvent;
+    private EventChannel.EventSink connectionInfoSink;
 
-    private static final String EVENT_CHANNEL_VPN_STAGE = "com.polecat.openvpn_flutter/vpnstage";
-    private static final String EVENT_CHANNEL_VPN_STATUS = "com.polecat.openvpn_flutter/vpnstatus";
-    private static final String METHOD_CHANNEL_VPN_CONTROL = "com.polecat.openvpn_flutter/vpncontrol";
+    private final int VPN_PERMISSION_CODE = 24;
 
-    private static String config = "", username = "", password = "", name = "";
+    private String config = "", name = "", username = "", password = "";
+    private ArrayList<String> bypassPackages;
 
-    private static ArrayList<String> bypassPackages;
-    @SuppressLint("StaticFieldLeak")
-    private static VPNHelper vpnHelper;
-    private Activity activity;
-
-    Context mContext;
-
-
-    public static void connectWhileGranted(boolean granted) {
-        if (granted) {
-            vpnHelper.startVPN(config, username, password, name, bypassPackages);
-        }
-    }
+    private VPNManager vpnManager;
+    private ActivityPluginBinding activityBinding;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
-        vpnStageEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STAGE);
-        vpnStatusEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STATUS);
         vpnControlMethod = new MethodChannel(binding.getBinaryMessenger(), METHOD_CHANNEL_VPN_CONTROL);
 
-        vpnStageEvent.setStreamHandler(new EventChannel.StreamHandler() {
+        vpnStateEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STATE);
+        connectionInfoEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_CONNECTION_INFO);
+
+        vpnStateEvent.setStreamHandler(new EventChannel.StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
-                vpnStageSink = events;
+                vpnStateSink = events;
             }
 
             @Override
             public void onCancel(Object arguments) {
-                if (vpnStageSink != null) vpnStageSink.endOfStream();
+                if (vpnStateSink != null) vpnStateSink.endOfStream();
             }
         });
 
-        vpnStatusEvent.setStreamHandler(new EventChannel.StreamHandler() {
+        connectionInfoEvent.setStreamHandler(new EventChannel.StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
-                vpnStatusSink = events;
+                connectionInfoSink = events;
             }
 
             @Override
             public void onCancel(Object arguments) {
-                if (vpnStatusSink != null) vpnStatusSink.endOfStream();
+                if (connectionInfoSink != null) connectionInfoSink.endOfStream();
             }
         });
 
         vpnControlMethod.setMethodCallHandler((call, result) -> {
 
             switch (call.method) {
-                case "status":
-                    if (vpnHelper == null) {
-                        result.error("-1", "VPNEngine need to be initialize", "");
-                        return;
-                    }
-                    result.success(vpnHelper.status.toString());
-                    break;
                 case "initialize":
-                    vpnHelper = new VPNHelper(activity);
-                    vpnHelper.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
+                    vpnManager = new VPNManager(activityBinding.getActivity());
+                    vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
                         @Override
-                        public void onVPNStatusChanged(String status) {
-                            updateStage(status);
+                        public void onVPNStateChanged(String state) {
+                            updateState(state);
                         }
 
                         @Override
-                        public void onConnectionStatusChanged(String duration, String lastPacketReceive, String byteIn, String byteOut) {
-                            updateStatus(vpnHelper.status.toString());
+                        public void onConnectionInfoChanged(long byteIn, long byteOut) {
+                            updateConnectionInfo(byteIn, byteOut);
                         }
                     });
-                    result.success(getVPNStage());
+                    result.success(null);
                     break;
                 case "disconnect":
-                    if (vpnHelper == null)
-                        result.error("-1", "VPNEngine need to be initialize", "");
+                    if (vpnManager == null)
+                        result.error("-1", "VPNEngine need to be initialized", "");
 
-                    vpnHelper.stopVPN();
-                    updateStage("disconnected");
+                    vpnManager.disconnect();
+                    result.success(null);
                     break;
                 case "connect":
-                    if (vpnHelper == null) {
-                        result.error("-1", "VPNEngine need to be initialize", "");
+                    if (vpnManager == null) {
+                        result.error("-1", "VPNEngine need to be initialized", "");
                         return;
                     }
 
@@ -132,77 +118,78 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware {
                         return;
                     }
 
-                    final Intent permission = VpnService.prepare(activity);
-                    if (permission != null) {
-                        activity.startActivityForResult(permission, 24);
-                        return;
+                    Activity activity = activityBinding.getActivity();
+                    if (activity == null) {
+                        result.error("-3", "Activity binding got null", "");
                     }
-                    vpnHelper.startVPN(config, username, password, name, bypassPackages);
-                    break;
-                case "stage":
-                    if (vpnHelper == null) {
-                        result.error("-1", "VPNEngine need to be initialize", "");
-                        return;
-                    }
-                    result.success(getVPNStage());
-                    break;
-                case "request_permission":
-                    final Intent request = VpnService.prepare(activity);
-                    if (request != null) {
-                        activity.startActivityForResult(request, 24);
-                        result.success(false);
-                        return;
-                    }
-                    result.success(true);
-                    break;
 
+                    final Intent permission = vpnManager.getPermissionIntent(activity);
+                    if (permission != null) {
+                        activity.startActivityForResult(permission, VPN_PERMISSION_CODE);
+                    } else {
+                        vpnManager.connect(activity, config, name, username, password, bypassPackages);
+                    }
+                    result.success(null);
+                    break;
                 default:
+                    break;
             }
         });
-        mContext = binding.getApplicationContext();
     }
 
-    public void updateStage(String stage) {
-        if (stage == null) stage = "idle";
-        if (vpnStageSink != null) vpnStageSink.success(stage.toLowerCase());
+    public void updateState(String state) {
+        if (vpnStateSink != null) vpnStateSink.success(state);
     }
 
-    public void updateStatus(String status) {
-        if (vpnStatusSink != null && status != null) vpnStatusSink.success(status.toLowerCase());
+    public void updateConnectionInfo(long byteIn, long byteOut) {
+        String status = String.format("%d_%d", byteIn, byteOut);
+        if (connectionInfoSink != null) connectionInfoSink.success(status);
     }
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        vpnStageEvent.setStreamHandler(null);
-        vpnStatusEvent.setStreamHandler(null);
+        vpnStateEvent.setStreamHandler(null);
+        connectionInfoEvent.setStreamHandler(null);
         vpnControlMethod.setMethodCallHandler(null);
-    }
-
-    private String getVPNStage() {
-        if (OpenVPNService.getStatus() == null) {
-            OpenVPNService.setDefaultStatus();
-        }
-        updateStage(OpenVPNService.getStatus());
-        return OpenVPNService.getStatus();
     }
 
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
-        activity = binding.getActivity();
+        attachActivity(binding);
     }
 
     @Override
     public void onDetachedFromActivityForConfigChanges() {
-
+        detachActivity();
     }
 
     @Override
     public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
-        activity = binding.getActivity();
+        attachActivity(binding);
     }
 
     @Override
     public void onDetachedFromActivity() {
+        detachActivity();
+    }
 
+    @Override
+    public boolean onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == VPN_PERMISSION_CODE && resultCode == Activity.RESULT_OK) {
+            vpnManager.connect(activityBinding.getActivity(), config, name, username, password, bypassPackages);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private void attachActivity(ActivityPluginBinding binding) {
+        activityBinding = binding;
+        activityBinding.addActivityResultListener(this);
+    }
+
+    private void detachActivity() {
+        activityBinding.removeActivityResultListener(this);
+        activityBinding = null;
     }
 }
