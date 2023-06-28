@@ -52,6 +52,20 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
         vpnStateEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STATE);
         connectionInfoEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_CONNECTION_INFO);
 
+        vpnManager = new VPNManager(binding.getApplicationContext());
+        vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
+            @Override
+            public void onVPNStateChanged(String state) {
+                updateState(state);
+            }
+
+            @Override
+            public void onConnectionInfoChanged(long byteIn, long byteOut) {
+                updateConnectionInfo(byteIn, byteOut);
+            }
+        });
+        vpnManager.bindVpnService(binding.getApplicationContext());
+
         vpnStateEvent.setStreamHandler(new EventChannel.StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
@@ -77,23 +91,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
         });
 
         vpnControlMethod.setMethodCallHandler((call, result) -> {
-
             switch (call.method) {
-                case "initialize":
-                    vpnManager = new VPNManager(activityBinding.getActivity());
-                    vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
-                        @Override
-                        public void onVPNStateChanged(String state) {
-                            updateState(state);
-                        }
-
-                        @Override
-                        public void onConnectionInfoChanged(long byteIn, long byteOut) {
-                            updateConnectionInfo(byteIn, byteOut);
-                        }
-                    });
-                    result.success(null);
-                    break;
                 case "disconnect":
                     if (vpnManager == null)
                         result.error("-1", "VPNEngine need to be initialized", "");
@@ -132,26 +130,8 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
                     result.success(null);
                     break;
                 default:
+                    result.notImplemented();
                     break;
-            }
-        });
-    }
-
-    public void updateState(String state) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (vpnStateSink != null) vpnStateSink.success(state);
-            }
-        });
-    }
-
-    public void updateConnectionInfo(long byteIn, long byteOut) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                String status = String.format("%d_%d", byteIn, byteOut);
-                if (connectionInfoSink != null) connectionInfoSink.success(status);
             }
         });
     }
@@ -193,16 +173,34 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
         }
     }
 
+    /// ====== Supporting methods
     private void attachActivity(ActivityPluginBinding binding) {
         activityBinding = binding;
         activityBinding.addActivityResultListener(this);
-        vpnManager.bindVpnService(activityBinding.getActivity());
     }
 
     private void detachActivity() {
-        vpnManager.unbindVpnService(activityBinding.getActivity());
         activityBinding.removeActivityResultListener(this);
         activityBinding = null;
+    }
+
+    private void updateState(String state) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (vpnStateSink != null) vpnStateSink.success(state);
+            }
+        });
+    }
+
+    private void updateConnectionInfo(long byteIn, long byteOut) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String status = String.format("%d_%d", byteIn, byteOut);
+                if (connectionInfoSink != null) connectionInfoSink.success(status);
+            }
+        });
     }
 
     private void runOnUiThread(Runnable runnable) {
