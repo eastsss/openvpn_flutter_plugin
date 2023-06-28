@@ -8,19 +8,19 @@ import 'model/vpn_status.dart';
 
 ///Stages of vpn connections
 enum VPNState {
-  prepare,
-  authenticating,
+  noprocess,
+  vpn_generate_config,
+  resolve,
+  wait,
   connecting,
+  get_config,
+  assign_ip,
   connected,
   disconnected,
   disconnecting,
   denied,
   error,
-// ignore: constant_identifier_names
-  wait_connection,
-// ignore: constant_identifier_names
-  no_connection,
-  reconnect
+  reconnecting
 }
 
 class OpenVPN {
@@ -186,10 +186,7 @@ class OpenVPN {
 
   ///Private function to convert String to VPNStage
   static VPNState _strToState(String? state) {
-    if (state == null ||
-        state.trim().isEmpty ||
-        state.trim() == "idle" ||
-        state.trim() == "invalid") {
+    if (state == null || state.trim().isEmpty {
       return VPNState.disconnected;
     }
     var indexStage = VPNState.values.indexWhere((element) => element
