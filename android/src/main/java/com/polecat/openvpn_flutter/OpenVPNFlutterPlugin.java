@@ -196,9 +196,11 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
     private void attachActivity(ActivityPluginBinding binding) {
         activityBinding = binding;
         activityBinding.addActivityResultListener(this);
+        vpnManager.bindVpnService(activityBinding.getActivity());
     }
 
     private void detachActivity() {
+        vpnManager.unbindVpnService(activityBinding.getActivity());
         activityBinding.removeActivityResultListener(this);
         activityBinding = null;
     }
