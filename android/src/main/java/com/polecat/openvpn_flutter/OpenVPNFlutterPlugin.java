@@ -138,12 +138,22 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
     }
 
     public void updateState(String state) {
-        if (vpnStateSink != null) vpnStateSink.success(state);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (vpnStateSink != null) vpnStateSink.success(state);
+            }
+        });
     }
 
     public void updateConnectionInfo(long byteIn, long byteOut) {
-        String status = String.format("%d_%d", byteIn, byteOut);
-        if (connectionInfoSink != null) connectionInfoSink.success(status);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String status = String.format("%d_%d", byteIn, byteOut);
+                if (connectionInfoSink != null) connectionInfoSink.success(status);
+            }
+        });
     }
 
     @Override
@@ -191,5 +201,12 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
     private void detachActivity() {
         activityBinding.removeActivityResultListener(this);
         activityBinding = null;
+    }
+
+    private void runOnUiThread(Runnable runnable) {
+        Activity activity = activityBinding.getActivity();
+        if (activity != null) {
+            activity.runOnUiThread(runnable);
+        }
     }
 }
