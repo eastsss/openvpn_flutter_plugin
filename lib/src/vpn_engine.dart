@@ -77,14 +77,14 @@ class OpenVPN {
     }
     initialized = true;
     _initializeListener();
-    return _methodChannel.invokeMethod("initialize", {
+    /*return _methodChannel.invokeMethod("initialize", {
       "groupIdentifier": groupIdentifier,
       "providerBundleIdentifier": providerBundleIdentifier,
       "localizedDescription": localizedDescription,
-    })/*.then((value) {
+    }).then((value) {
       status().then((value) => lastStatus?.call(value));
       stage().then((value) => lastStage?.call(value));
-    })*/;
+    });*/
   }
 
   ///Connect to VPN
