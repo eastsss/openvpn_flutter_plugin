@@ -184,7 +184,7 @@ class OpenVPN {
 
   ///Private function to convert String to VPNStage
   static VPNState _strToState(String? state) {
-    if (state == null || state.trim().isEmpty {
+    if (state == null || state.trim().isEmpty) {
       return VPNState.disconnected;
     }
     var indexStage = VPNState.values.indexWhere((element) => element
