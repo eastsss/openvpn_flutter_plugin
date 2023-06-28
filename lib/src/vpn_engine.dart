@@ -18,8 +18,6 @@ enum VPNState {
   connected,
   disconnected,
   disconnecting,
-  denied,
-  error,
   reconnecting
 }
 
