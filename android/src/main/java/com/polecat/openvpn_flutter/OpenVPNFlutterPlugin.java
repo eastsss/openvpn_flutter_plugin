@@ -71,7 +71,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
             }
         });
 
-        /*vpnControlMethod.setMethodCallHandler((call, result) -> {
+        vpnControlMethod.setMethodCallHandler((call, result) -> {
             switch (call.method) {
                 case "disconnect":
                     if (vpnManager == null)
@@ -114,7 +114,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
                     result.notImplemented();
                     break;
             }
-        });*/
+        });
 
         vpnManager = new VPNManager(binding.getApplicationContext());
         vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
