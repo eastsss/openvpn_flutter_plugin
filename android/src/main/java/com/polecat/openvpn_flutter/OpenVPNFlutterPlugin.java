@@ -1,10 +1,7 @@
 package com.polecat.openvpn_flutter;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
-import android.net.VpnService;
 
 import androidx.annotation.NonNull;
 
@@ -12,8 +9,6 @@ import java.util.ArrayList;
 
 import de.blinkt.openvpn.OnVPNStatusChangeListener;
 import de.blinkt.openvpn.VPNManager;
-import de.blinkt.openvpn.core.OpenVPNService;
-import de.blinkt.openvpn.core.StatusListener;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
