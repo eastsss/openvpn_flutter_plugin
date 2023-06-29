@@ -88,6 +88,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
                     });
                     vpnManager.bindVpnService(binding.getApplicationContext());
                     result.success(null);
+                    break;
                 case "disconnect":
                     if (vpnManager == null)
                         result.error("-1", "VPNEngine need to be initialized", "");
