@@ -73,6 +73,21 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
 
         vpnControlMethod.setMethodCallHandler((call, result) -> {
             switch (call.method) {
+                case "initialize":
+                    vpnManager = new VPNManager(binding.getApplicationContext());
+                    vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
+                        @Override
+                        public void onVPNStateChanged(String state) {
+                            updateState(state);
+                        }
+
+                        @Override
+                        public void onConnectionInfoChanged(long byteIn, long byteOut) {
+                            updateConnectionInfo(byteIn, byteOut);
+                        }
+                    });
+                    vpnManager.bindVpnService(binding.getApplicationContext());
+                    result.success(null);
                 case "disconnect":
                     if (vpnManager == null)
                         result.error("-1", "VPNEngine need to be initialized", "");
@@ -115,20 +130,6 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
                     break;
             }
         });
-
-        vpnManager = new VPNManager(binding.getApplicationContext());
-        vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
-            @Override
-            public void onVPNStateChanged(String state) {
-                updateState(state);
-            }
-
-            @Override
-            public void onConnectionInfoChanged(long byteIn, long byteOut) {
-                updateConnectionInfo(byteIn, byteOut);
-            }
-        });
-        vpnManager.bindVpnService(binding.getApplicationContext());
     }
 
     @Override
