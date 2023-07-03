@@ -1,2 +1,2 @@
 export 'src/vpn_engine.dart';
-export 'src/model/vpn_status.dart';
+export 'src/model/connection_statistics.dart';
