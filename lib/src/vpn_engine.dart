@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:openvpn_flutter_plugin/src/model/connection_info.dart';
+import 'package:openvpn_flutter_plugin/src/model/connection_statistics.dart';
 
 ///Stages of vpn connections
 enum VPNState {
@@ -32,9 +32,7 @@ class OpenVPN {
   static Stream<String> _stateEventChannel() => const EventChannel(_eventChannelVpnState).receiveBroadcastStream().cast();
   static Stream<String> _connectionInfoEventChannel() => const EventChannel(_eventChannelConnectionInfo).receiveBroadcastStream().cast();
 
-  DateTime? _tempDateTime;
-
-  final Function(ConnectionInfo info)? onConnectionInfoChanged;
+  final Function(ConnectionStatistics info)? onConnectionInfoChanged;
   final Function(VPNState state)? onVpnStateChanged;
 
   OpenVPN({this.onConnectionInfoChanged, this.onVpnStateChanged});
@@ -79,7 +77,6 @@ class OpenVPN {
       {String? username,
       String? password,
       List<String>? bypassPackages}) async {
-    _tempDateTime = DateTime.now();
     _methodChannel.invokeMethod("connect", {
       "config": config,
       "name": name,
@@ -91,7 +88,6 @@ class OpenVPN {
 
   ///Disconnect from VPN
   void disconnect() {
-    _tempDateTime = null;
     _methodChannel.invokeMethod("disconnect");
   }
 
@@ -102,9 +98,9 @@ class OpenVPN {
       onVpnStateChanged?.call(vpnStage);
     });
     _connectionInfoEventChannel().listen((event) {
-      debugPrint("Connection info event received: $event");
+      debugPrint("ByteCount event received: $event");
       var splitted = event.split("_");
-      var info = ConnectionInfo(
+      var info = ConnectionStatistics(
           byteIn: int.parse(splitted[0]),
           byteOut: int.parse(splitted[1])
       );

@@ -1,5 +1,5 @@
-class ConnectionInfo {
-  ConnectionInfo({
+class ConnectionStatistics {
+  ConnectionStatistics({
     required this.byteIn,
     required this.byteOut
   });
