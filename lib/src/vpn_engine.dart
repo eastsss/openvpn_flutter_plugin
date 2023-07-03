@@ -32,10 +32,14 @@ class OpenVPN {
   static Stream<String> _stateEventChannel() => const EventChannel(_eventChannelVpnState).receiveBroadcastStream().cast();
   static Stream<String> _connectionInfoEventChannel() => const EventChannel(_eventChannelConnectionInfo).receiveBroadcastStream().cast();
 
+  Timer? _connectionTimer;
+  DateTime? _connectedOn;
+
   final Function(ConnectionStatistics info)? onConnectionInfoChanged;
   final Function(VPNState state)? onVpnStateChanged;
+  final Function(String duration)? onConnectionTimeUpdated;
 
-  OpenVPN({this.onConnectionInfoChanged, this.onVpnStateChanged});
+  OpenVPN({this.onConnectionInfoChanged, this.onVpnStateChanged, this.onConnectionTimeUpdated});
 
   ///This function should be called before any usage of OpenVPN
   ///All params required for iOS, make sure you read the plugin's documentation
@@ -77,6 +81,7 @@ class OpenVPN {
       {String? username,
       String? password,
       List<String>? bypassPackages}) async {
+    _connectedOn = DateTime.now();
     _methodChannel.invokeMethod("connect", {
       "config": config,
       "name": name,
@@ -88,14 +93,36 @@ class OpenVPN {
 
   ///Disconnect from VPN
   void disconnect() {
+    _connectedOn = null;
     _methodChannel.invokeMethod("disconnect");
+  }
+
+  void startConnectionTimeUpdates() {
+    if (_connectionTimer != null) {
+      _connectionTimer?.cancel();
+      _connectionTimer = null;
+    }
+    _connectionTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      var duration = _duration(DateTime.now().difference(_connectedOn!).abs());
+      onConnectionTimeUpdated?.call(duration);
+    });
+  }
+
+  void stopConnectionTimeUpdates() {
+    _connectionTimer?.cancel();
+    _connectionTimer = null;
   }
 
   void _initializeListeners() {
     _stateEventChannel().listen((event) {
       debugPrint("VPNState event received: $event");
-      var vpnStage = _strToState(event);
-      onVpnStateChanged?.call(vpnStage);
+      var vpnState = _strToState(event);
+      if (vpnState == VPNState.disconnected) {
+        _connectionTimer?.cancel();
+        _connectionTimer = null;
+        _connectedOn = null;
+      }
+      onVpnStateChanged?.call(vpnState);
     });
     _connectionInfoEventChannel().listen((event) {
       debugPrint("ConnectionStatistics event received: $event");
@@ -113,12 +140,19 @@ class OpenVPN {
     if (state == null || state.trim().isEmpty) {
       return VPNState.disconnected;
     }
-    var indexStage = VPNState.values.indexWhere((element) => element
+    var index = VPNState.values.indexWhere((element) => element
         .toString()
         .trim()
         .toLowerCase()
         .contains(state.toString().trim().toLowerCase()));
-    if (indexStage >= 0) return VPNState.values[indexStage];
+    if (index >= 0) return VPNState.values[index];
     return VPNState.disconnected;
+  }
+
+  String _duration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 }
