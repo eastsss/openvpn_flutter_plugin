@@ -97,19 +97,18 @@ class OpenVPN {
     _methodChannel.invokeMethod("disconnect");
   }
 
-  void startConnectionTimeUpdates() {
+  String startConnectionTimeUpdates() {
     if (_connectionTimer != null) {
       _connectionTimer?.cancel();
       _connectionTimer = null;
     }
-
-    var duration = _duration(DateTime.now().difference(_connectedOn!).abs());
-    onConnectionTimeUpdated?.call(duration);
     
     _connectionTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       var duration = _duration(DateTime.now().difference(_connectedOn!).abs());
       onConnectionTimeUpdated?.call(duration);
     });
+
+    return _duration(DateTime.now().difference(_connectedOn!).abs());
   }
 
   void stopConnectionTimeUpdates() {
