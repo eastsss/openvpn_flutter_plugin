@@ -9,6 +9,7 @@ import java.util.ArrayList;
 
 import de.blinkt.openvpn.OnVPNStatusChangeListener;
 import de.blinkt.openvpn.VPNManager;
+import de.blinkt.openvpn.VPNEvent;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
@@ -24,9 +25,9 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
     private final String METHOD_CHANNEL_VPN_CONTROL = "com.polecat.openvpn_flutter/vpncontrol";
     private MethodChannel vpnControlMethod;
 
-    private final String EVENT_CHANNEL_VPN_STATE = "com.polecat.openvpn_flutter/vpnstate";
-    private EventChannel vpnStateEvent;
-    private EventChannel.EventSink vpnStateSink;
+    private final String EVENT_CHANNEL_VPN_EVENT = "com.polecat.openvpn_flutter/vpnevent";
+    private EventChannel vpnEventChannel;
+    private EventChannel.EventSink vpnEventSink;
 
     private final String EVENT_CHANNEL_CONNECTION_INFO = "com.polecat.openvpn_flutter/connectioninfo";
     private EventChannel connectionInfoEvent;
@@ -44,18 +45,18 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
         vpnControlMethod = new MethodChannel(binding.getBinaryMessenger(), METHOD_CHANNEL_VPN_CONTROL);
 
-        vpnStateEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_STATE);
+        vpnEventChannel = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_VPN_EVENT);
         connectionInfoEvent = new EventChannel(binding.getBinaryMessenger(), EVENT_CHANNEL_CONNECTION_INFO);
 
-        vpnStateEvent.setStreamHandler(new EventChannel.StreamHandler() {
+        vpnEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
-                vpnStateSink = events;
+                vpnEventSink = events;
             }
 
             @Override
             public void onCancel(Object arguments) {
-                if (vpnStateSink != null) vpnStateSink.endOfStream();
+                if (vpnEventSink != null) vpnEventSink.endOfStream();
             }
         });
 
@@ -77,8 +78,8 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
                     vpnManager = new VPNManager(binding.getApplicationContext());
                     vpnManager.setOnVPNStatusChangeListener(new OnVPNStatusChangeListener() {
                         @Override
-                        public void onVPNStateChanged(String state) {
-                            updateState(state);
+                        public void onVPNEventReceived(VPNEvent event) {
+                            updateEvent(event);
                         }
 
                         @Override
@@ -135,7 +136,7 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        vpnStateEvent.setStreamHandler(null);
+        vpnEventChannel.setStreamHandler(null);
         connectionInfoEvent.setStreamHandler(null);
         vpnControlMethod.setMethodCallHandler(null);
         activityBinding = null;
@@ -184,11 +185,11 @@ public class OpenVPNFlutterPlugin implements FlutterPlugin, ActivityAware, Plugi
         activityBinding = null;
     }
 
-    private void updateState(String state) {
+    private void updateEvent(VPNEvent event) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (vpnStateSink != null) vpnStateSink.success(state);
+                if (vpnEventSink != null) vpnEventSink.success(event.name());
             }
         });
     }

@@ -3,24 +3,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:openvpn_flutter_plugin/src/model/connection_statistics.dart';
+import 'package:openvpn_flutter_plugin/src/model/vpn_event.dart';
 
-///Stages of vpn connections
 enum VPNState {
-  noprocess,
-  vpn_generate_config,
-  resolve,
-  wait,
-  connecting,
-  get_config,
-  assign_ip,
-  connected,
-  disconnected,
-  disconnecting,
-  reconnecting
+  connecting, disconnecting, connected, disconnected;
+}
+
+enum VPNError {
+  authFailed;
 }
 
 class OpenVPN {
-  static const String _eventChannelVpnState = "com.polecat.openvpn_flutter/vpnstate";
+  static const String _eventChannelVpnEvent = "com.polecat.openvpn_flutter/vpnevent";
   static const String _eventChannelConnectionInfo = "com.polecat.openvpn_flutter/connectioninfo";
   static const String _methodChannelVpnControl = "com.polecat.openvpn_flutter/vpncontrol";
 
@@ -29,7 +23,7 @@ class OpenVPN {
       MethodChannel(_methodChannelVpnControl);
 
   ///Snapshot of stream with events produced by native side
-  static Stream<String> _stateEventChannel() => const EventChannel(_eventChannelVpnState).receiveBroadcastStream().cast();
+  static Stream<String> _vpnEventChannel() => const EventChannel(_eventChannelVpnEvent).receiveBroadcastStream().cast();
   static Stream<String> _connectionInfoEventChannel() => const EventChannel(_eventChannelConnectionInfo).receiveBroadcastStream().cast();
 
   Timer? _connectionTimer;
@@ -37,17 +31,17 @@ class OpenVPN {
 
   final Function(ConnectionStatistics info)? onConnectionInfoChanged;
   final Function(VPNState state)? onVpnStateChanged;
+  final Function(VPNError error)? onVpnErrorReceived;
   final Function(String duration)? onConnectionTimeUpdated;
 
-  OpenVPN({this.onConnectionInfoChanged, this.onVpnStateChanged, this.onConnectionTimeUpdated});
+  OpenVPN({
+    this.onConnectionInfoChanged,
+    this.onVpnStateChanged,
+    this.onVpnErrorReceived,
+    this.onConnectionTimeUpdated
+  });
 
   ///This function should be called before any usage of OpenVPN
-  ///All params required for iOS, make sure you read the plugin's documentation
-  ///
-  ///providerBundleIdentfier is for your Network Extension identifier
-  ///
-  ///localizedDescription is for description to show in user's settings
-  ///
   Future<void> initialize({
     String? providerBundleIdentifier,
     String? localizedDescription,
@@ -68,15 +62,6 @@ class OpenVPN {
     });
   }
 
-  ///Connect to VPN
-  ///
-  ///config : Your openvpn configuration script, you can find it inside your .ovpn file
-  ///
-  ///name : name that will show in user's notification
-  ///
-  ///username & password : set your username and password if your config file has auth-user-pass
-  ///
-  ///bypassPackages : exclude some apps to access/use the VPN Connection, it was List<String> of applications package's name (Android Only)
   void connect(String config, String name,
       {String? username,
       String? password,
@@ -91,7 +76,6 @@ class OpenVPN {
     });
   }
 
-  ///Disconnect from VPN
   void disconnect() {
     _connectedOn = null;
     _methodChannel.invokeMethod("disconnect");
@@ -116,40 +100,14 @@ class OpenVPN {
     _connectionTimer = null;
   }
 
+  /// Private methods
   void _initializeListeners() {
-    _stateEventChannel().listen((event) {
-      debugPrint("VPNState event received: $event");
-      var vpnState = _strToState(event);
-      if (vpnState == VPNState.disconnected) {
-        _connectionTimer?.cancel();
-        _connectionTimer = null;
-        _connectedOn = null;
-      }
-      onVpnStateChanged?.call(vpnState);
+    _vpnEventChannel().listen((event) {
+      _handleVPNEvent(event);
     });
     _connectionInfoEventChannel().listen((event) {
-      debugPrint("ConnectionStatistics event received: $event");
-      var splitted = event.split("_");
-      var info = ConnectionStatistics(
-          byteIn: int.parse(splitted[0]),
-          byteOut: int.parse(splitted[1])
-      );
-      onConnectionInfoChanged?.call(info);
+      _handleConnectionInfoEvent(event);
     });
-  }
-
-  ///Private function to convert String to VPNState
-  VPNState _strToState(String? state) {
-    if (state == null || state.trim().isEmpty) {
-      return VPNState.disconnected;
-    }
-    var index = VPNState.values.indexWhere((element) => element
-        .toString()
-        .trim()
-        .toLowerCase()
-        .contains(state.toString().trim().toLowerCase()));
-    if (index >= 0) return VPNState.values[index];
-    return VPNState.disconnected;
   }
 
   String _duration(Duration duration) {
@@ -157,5 +115,35 @@ class OpenVPN {
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
     return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  void _handleVPNEvent(String event) {
+    debugPrint("VPNEvent received: $event");
+    var vpnEvent = VPNEvent.fromNativeEvent(event);
+    if (vpnEvent == VPNEvent.DISCONNECTED) {
+      _connectionTimer?.cancel();
+      _connectionTimer = null;
+      _connectedOn = null;
+    }
+
+    var vpnState = vpnEvent?.correspondingState();
+    if (vpnState != null) {
+      onVpnStateChanged?.call(vpnState);
+    }
+
+    var vpnError = vpnEvent?.correspondingError();
+    if (vpnError != null) {
+      onVpnErrorReceived?.call(vpnError);
+    }
+  }
+
+  void _handleConnectionInfoEvent(String event) {
+    debugPrint("ConnectionStatistics received: $event");
+    var splitted = event.split("_");
+    var info = ConnectionStatistics(
+        byteIn: int.parse(splitted[0]),
+        byteOut: int.parse(splitted[1])
+    );
+    onConnectionInfoChanged?.call(info);
   }
 }
