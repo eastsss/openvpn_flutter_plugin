@@ -98,7 +98,7 @@ class OpenVPN {
       onVpnStateChanged?.call(vpnStage);
     });
     _connectionInfoEventChannel().listen((event) {
-      debugPrint("ByteCount event received: $event");
+      debugPrint("ConnectionStatistics event received: $event");
       var splitted = event.split("_");
       var info = ConnectionStatistics(
           byteIn: int.parse(splitted[0]),
