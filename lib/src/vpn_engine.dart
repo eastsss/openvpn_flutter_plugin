@@ -58,7 +58,7 @@ class OpenVPN {
               localizedDescription != null,
           "These values are required for ios.");
     }
-    _initializeListener();
+    _initializeListeners();
     return _methodChannel.invokeMethod("initialize", {
       "groupIdentifier": groupIdentifier,
       "providerBundleIdentifier": providerBundleIdentifier,
@@ -95,8 +95,7 @@ class OpenVPN {
     _methodChannel.invokeMethod("disconnect");
   }
 
-  ///Initialize listener, called when you start connection
-  void _initializeListener() {
+  void _initializeListeners() {
     _stateEventChannel().listen((event) {
       debugPrint("VPNState event received: $event");
       var vpnStage = _strToState(event);
@@ -111,14 +110,6 @@ class OpenVPN {
       );
       onConnectionInfoChanged?.call(info);
     });
-  }
-
-  ///Convert duration that produced by native side as Connection Time
-  String _duration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
   ///Private function to convert String to VPNState
