@@ -10,7 +10,7 @@ enum VPNState {
 }
 
 enum VPNError {
-  authFailed;
+  authFailed, networkUnreachable;
 }
 
 class OpenVPN {

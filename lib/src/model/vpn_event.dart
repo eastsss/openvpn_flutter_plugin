@@ -13,7 +13,9 @@ enum VPNEvent {
   DISCONNECTED,
   DISCONNECTING,
   RECONNECTING,
-  AUTH_FAILED;
+  AUTH_FAILED,
+  PAUSE,
+  RESUME;
 
   static VPNEvent? fromNativeEvent(String name) {
     for (VPNEvent enumVariant in VPNEvent.values) {
@@ -48,6 +50,8 @@ enum VPNEvent {
     switch (this) {
       case VPNEvent.AUTH_FAILED:
         return VPNError.authFailed;
+      case VPNEvent.PAUSE:
+        return VPNError.networkUnreachable;
       default:
         return null;
     }
